@@ -28,6 +28,7 @@ export async function listActiveMembers(opts: {
   q?: string;
   subdivision?: string;
   rank?: string;
+  limit?: number;
 } = {}): Promise<Member[]> {
   const params: unknown[] = [];
   const where = ["status = 'active'"];
@@ -43,6 +44,8 @@ export async function listActiveMembers(opts: {
     params.push(opts.rank);
     where.push(`rank = $${params.length}`);
   }
+  const limit = Math.min(Math.max(opts.limit ?? 200, 1), 500);
+  params.push(limit);
   return sql<Member>(
     `
     select * from members
@@ -51,6 +54,7 @@ export async function listActiveMembers(opts: {
       case when rank is null then 1 else 0 end,
       rank asc,
       roblox_username asc
+    limit $${params.length}
     `,
     params,
   );
@@ -59,6 +63,7 @@ export async function listActiveMembers(opts: {
 export async function listDischargedMembers(opts: {
   q?: string;
   type?: string;
+  limit?: number;
 } = {}): Promise<Member[]> {
   const params: unknown[] = [];
   const where = ["status = 'discharged'"];
@@ -70,11 +75,14 @@ export async function listDischargedMembers(opts: {
     params.push(opts.type);
     where.push(`discharge_type = $${params.length}`);
   }
+  const limit = Math.min(Math.max(opts.limit ?? 200, 1), 500);
+  params.push(limit);
   return sql<Member>(
     `
     select * from members
     where ${where.join(" and ")}
     order by roblox_username asc
+    limit $${params.length}
     `,
     params,
   );
@@ -131,6 +139,7 @@ export async function listBySubdivision(match: string): Promise<Member[]> {
 export async function listDepartmentRecords(opts: {
   q?: string;
   status?: string;
+  limit?: number;
 } = {}): Promise<Member[]> {
   const params: unknown[] = [];
   const where = ["1=1"];
@@ -142,11 +151,16 @@ export async function listDepartmentRecords(opts: {
     params.push(opts.status);
     where.push(`status = $${params.length}`);
   }
+  const limit = Math.min(Math.max(opts.limit ?? 200, 1), 500);
+  params.push(limit);
   return sql<Member>(
     `
-    select * from members
+    select id, roblox_username, username_key, status, rank, hire_date,
+           timezone, level, subdivision
+    from members
     where ${where.join(" and ")}
     order by status asc, roblox_username asc
+    limit $${params.length}
     `,
     params,
   );
@@ -174,7 +188,7 @@ export async function listAdminLogs(opts: {
     params.push(`%${opts.subdivision}%`);
     where.push(`subdivision ilike $${params.length}`);
   }
-  const limit = opts.limit ?? 500;
+  const limit = Math.min(Math.max(opts.limit ?? 200, 1), 400);
   params.push(limit);
   return sql<AdminLog>(
     `

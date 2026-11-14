@@ -4,14 +4,16 @@ import pg from "pg";
 
 const databaseUrl = process.env.DATABASE_URL?.trim() ?? "";
 const isProduction = process.env.NODE_ENV === "production";
+// During `next build`, NODE_ENV is production but we must not crash module load
+// when collecting dynamic page data without a live DB.
+const isBuild =
+  process.env.NEXT_PHASE === "phase-production-build" ||
+  process.argv.includes("build");
 
-if (isProduction && databaseUrl === "") {
-  throw new Error(
-    "DATABASE_URL is required in production. " +
-      "Create a Render PostgreSQL database and set DATABASE_URL on the web service " +
-      "(see docs/render.md). PGlite is for local development only and will OOM on Render's 512MB free tier.",
-  );
-}
+// Log once at module load (boolean only — never the secret).
+console.log(
+  `[sd-scpf] db: DATABASE_URL=${databaseUrl !== "" ? "set" : "missing"} production=${isProduction}`,
+);
 
 let pool: pg.Pool | undefined;
 
@@ -27,14 +29,29 @@ let local: Promise<LocalDb> | undefined;
 
 const localDataDir = path.join(process.cwd(), ".data", "pglite");
 
+function assertProductionDatabase() {
+  if (isProduction && !isBuild && databaseUrl === "") {
+    throw new Error(
+      "DATABASE_URL is required in production. " +
+        "Create a Render PostgreSQL database and set DATABASE_URL on the web service " +
+        "(see docs/render.md). PGlite is for local development only and will OOM on Render's 512MB free tier.",
+    );
+  }
+}
+
 export async function sql<T = Record<string, unknown>>(
   text: string,
   params: unknown[] = [],
 ): Promise<T[]> {
+  assertProductionDatabase();
+
   if (databaseUrl !== "") {
     pool ??= new pg.Pool({
       connectionString: databaseUrl,
-      max: 5,
+      // Free-tier: keep the pool tiny.
+      max: 2,
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 15_000,
       ssl: sslOption(databaseUrl),
     });
     return (await pool.query(text, params)).rows as T[];
@@ -56,11 +73,13 @@ function sslOption(url: string): boolean | { rejectUnauthorized: boolean } | und
 }
 
 async function startLocal() {
-  if (isProduction) {
+  if (isProduction || databaseUrl !== "") {
     throw new Error(
-      "Refusing to start PGlite in production. Set DATABASE_URL to a real Postgres instance.",
+      "Refusing to start PGlite in production or when DATABASE_URL is set. Use hosted Postgres.",
     );
   }
+  // Dynamic import keeps @electric-sql/pglite out of the production server graph
+  // (also listed in next.config serverExternalPackages).
   const { PGlite } = await import("@electric-sql/pglite");
   await mkdir(localDataDir, { recursive: true });
   const db = new PGlite(localDataDir);

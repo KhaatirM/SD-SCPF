@@ -8,7 +8,16 @@ type CacheRow = {
 };
 
 const MEMORY = new Map<string, string | null>();
+const MEMORY_MAX = 256;
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+
+function remember(k: string, value: string | null) {
+  if (MEMORY.size >= MEMORY_MAX) {
+    const oldest = MEMORY.keys().next().value;
+    if (oldest !== undefined) MEMORY.delete(oldest);
+  }
+  MEMORY.set(k, value);
+}
 
 export async function getAvatarUrl(username: string): Promise<string | null> {
   const k = usernameKey(username);
@@ -22,7 +31,7 @@ export async function getAvatarUrl(username: string): Promise<string | null> {
   if (row?.fetched_at) {
     const age = Date.now() - new Date(row.fetched_at).getTime();
     if (age < CACHE_TTL_MS) {
-      MEMORY.set(k, row.image_url);
+      remember(k, row.image_url);
       return row.image_url;
     }
   }
@@ -35,7 +44,7 @@ export async function getAvatarUrl(username: string): Promise<string | null> {
       next: { revalidate: 86400 },
     });
     if (!userRes.ok) {
-      MEMORY.set(k, null);
+      remember(k, null);
       return null;
     }
     const userJson = (await userRes.json()) as {
@@ -44,7 +53,7 @@ export async function getAvatarUrl(username: string): Promise<string | null> {
     const user = userJson.data?.[0];
     if (!user) {
       await upsertCache(k, null, null);
-      MEMORY.set(k, null);
+      remember(k, null);
       return null;
     }
 
@@ -54,7 +63,7 @@ export async function getAvatarUrl(username: string): Promise<string | null> {
     );
     if (!thumbRes.ok) {
       await upsertCache(k, user.id, null);
-      MEMORY.set(k, null);
+      remember(k, null);
       return null;
     }
     const thumbJson = (await thumbRes.json()) as {
@@ -62,10 +71,10 @@ export async function getAvatarUrl(username: string): Promise<string | null> {
     };
     const imageUrl = thumbJson.data?.[0]?.imageUrl ?? null;
     await upsertCache(k, user.id, imageUrl);
-    MEMORY.set(k, imageUrl);
+    remember(k, imageUrl);
     return imageUrl;
   } catch {
-    MEMORY.set(k, row?.image_url ?? null);
+    remember(k, row?.image_url ?? null);
     return row?.image_url ?? null;
   }
 }

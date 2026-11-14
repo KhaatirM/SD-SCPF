@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/migrate.mjs && node scripts/import.mjs && next build",
-    "start": "next start",
+    "build": "node scripts/migrate.mjs && next build && node scripts/prepare-standalone.mjs",
+    "start": "node scripts/start.mjs",
     "lint": "eslint",
     "migrate": "node scripts/migrate.mjs",
     "import": "node scripts/import.mjs",

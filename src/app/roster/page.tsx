@@ -77,7 +77,9 @@ export default async function RosterPage({
           )}
         </div>
         <p className="muted" style={{ marginTop: "1rem" }}>
-          {members.length} active member{members.length === 1 ? "" : "s"}
+          Showing {members.length} active member
+          {members.length === 1 ? "" : "s"}
+          {members.length >= 200 ? " (capped — refine filters to narrow)" : ""}
         </p>
       </section>
     </>
