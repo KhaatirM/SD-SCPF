@@ -1,0 +1,25 @@
+# Render Blueprint: web app + PostgreSQL for SD-SCPF
+# Docs: https://render.com/docs/blueprint-spec
+# Setup checklist: docs/render.md
+
+databases:
+  - name: sd-scpf-db
+    plan: free
+    databaseName: sd_scpf
+    user: sd_scpf
+
+services:
+  - type: web
+    name: SD-SCPF
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sd-scpf-db
+          property: connectionString

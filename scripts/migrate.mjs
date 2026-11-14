@@ -2,15 +2,34 @@ import { readdir, readFile } from "node:fs/promises";
 import pg from "pg";
 
 const url = process.env.DATABASE_URL?.trim() ?? "";
+const isProduction = process.env.NODE_ENV === "production";
+
+if (url === "") {
+  if (isProduction) {
+    console.error(
+      "migrate: DATABASE_URL is required in production. " +
+        "Create a Render PostgreSQL database and set DATABASE_URL on the web service (see docs/render.md).",
+    );
+    process.exit(1);
+  }
+  console.log("migrate: no DATABASE_URL — skipping (local PGlite auto-migrates on first query)");
+  process.exit(0);
+}
+
 const files = (await readdir("migrations").catch(() => []))
   .filter((f) => f.endsWith(".sql"))
   .sort();
-if (url === "" || files.length === 0) {
-  console.log("migrate: nothing to do");
+if (files.length === 0) {
+  console.log("migrate: no migration files");
   process.exit(0);
 }
+
+const connectionString =
+  process.env.DATABASE_URL_UNPOOLED?.trim() || url;
+
 const client = new pg.Client({
-  connectionString: process.env.DATABASE_URL_UNPOOLED?.trim() || url,
+  connectionString,
+  ssl: sslOption(connectionString),
 });
 await client.connect();
 try {
@@ -38,6 +57,13 @@ try {
       throw error;
     }
   }
+  console.log("migrate: up to date");
 } finally {
   await client.end();
+}
+
+function sslOption(connectionUrl) {
+  if (/localhost|127\.0\.0\.1/i.test(connectionUrl)) return undefined;
+  if (/sslmode=disable/i.test(connectionUrl)) return undefined;
+  return { rejectUnauthorized: false };
 }

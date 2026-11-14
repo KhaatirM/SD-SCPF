@@ -1,11 +1,29 @@
 import { mkdir, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
 
 const databaseUrl = process.env.DATABASE_URL?.trim() ?? "";
+const isProduction = process.env.NODE_ENV === "production";
+
+if (isProduction && databaseUrl === "") {
+  throw new Error(
+    "DATABASE_URL is required in production. " +
+      "Create a Render PostgreSQL database and set DATABASE_URL on the web service " +
+      "(see docs/render.md). PGlite is for local development only and will OOM on Render's 512MB free tier.",
+  );
+}
+
 let pool: pg.Pool | undefined;
-let local: Promise<PGlite> | undefined;
+
+type LocalDb = {
+  query: <T>(
+    text: string,
+    params?: unknown[],
+  ) => Promise<{ rows: T[] }>;
+};
+
+/** Lazy local PGlite handle — never loaded when DATABASE_URL is set or in production. */
+let local: Promise<LocalDb> | undefined;
 
 const localDataDir = path.join(process.cwd(), ".data", "pglite");
 
@@ -14,17 +32,36 @@ export async function sql<T = Record<string, unknown>>(
   params: unknown[] = [],
 ): Promise<T[]> {
   if (databaseUrl !== "") {
-    pool ??= new pg.Pool({ connectionString: databaseUrl, max: 5 });
+    pool ??= new pg.Pool({
+      connectionString: databaseUrl,
+      max: 5,
+      ssl: sslOption(databaseUrl),
+    });
     return (await pool.query(text, params)).rows as T[];
   }
+
+  // Dev / local only: dynamic-import PGlite so production never loads it.
   local ??= startLocal().catch((error: unknown) => {
     local = undefined;
     throw error;
   });
-  return (await (await local).query<T>(text, params)).rows;
+  return (await (await local).query(text, params)).rows as T[];
 }
 
-async function startLocal(): Promise<PGlite> {
+function sslOption(url: string): boolean | { rejectUnauthorized: boolean } | undefined {
+  // Render (and most hosted Postgres) require TLS. Local Postgres usually does not.
+  if (/localhost|127\.0\.0\.1/i.test(url)) return undefined;
+  if (/sslmode=disable/i.test(url)) return undefined;
+  return { rejectUnauthorized: false };
+}
+
+async function startLocal() {
+  if (isProduction) {
+    throw new Error(
+      "Refusing to start PGlite in production. Set DATABASE_URL to a real Postgres instance.",
+    );
+  }
+  const { PGlite } = await import("@electric-sql/pglite");
   await mkdir(localDataDir, { recursive: true });
   const db = new PGlite(localDataDir);
   const files = (await readdir("migrations").catch(() => []))
