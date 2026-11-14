@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@electric-sql/pglite"],
+  // Keep native/heavy DB packages out of the Next server bundle.
+  // PGlite is only dynamic-imported for local/dev when DATABASE_URL is unset.
+  serverExternalPackages: ["@electric-sql/pglite", "pg"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.rbxcdn.com" },

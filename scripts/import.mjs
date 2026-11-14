@@ -1,7 +1,6 @@
 import { mkdir, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
 import XLSX from "xlsx";
 
@@ -18,6 +17,22 @@ const OUTDATED =
 const OLD_DB = "_SCPF__Security_Department_Records__OLD_DB__4b5d.xlsx";
 
 const databaseUrl = process.env.DATABASE_URL?.trim() ?? "";
+const isProduction = process.env.NODE_ENV === "production";
+
+if (isProduction && databaseUrl === "") {
+  console.error(
+    "import: DATABASE_URL is required in production. " +
+      "Create a Render PostgreSQL database and set DATABASE_URL on the web service (see docs/render.md). " +
+      "PGlite is for local development only and will OOM on Render's 512MB free tier.",
+  );
+  process.exit(1);
+}
+
+function sslOption(connectionUrl) {
+  if (/localhost|127\.0\.0\.1/i.test(connectionUrl)) return undefined;
+  if (/sslmode=disable/i.test(connectionUrl)) return undefined;
+  return { rejectUnauthorized: false };
+}
 
 /** @type {{ query: Function, exec?: Function, end?: Function }} */
 let db;
@@ -179,9 +194,11 @@ async function main() {
 
 async function openDb() {
   if (databaseUrl !== "") {
+    const connectionString =
+      process.env.DATABASE_URL_UNPOOLED?.trim() || databaseUrl;
     const client = new pg.Client({
-      connectionString:
-        process.env.DATABASE_URL_UNPOOLED?.trim() || databaseUrl,
+      connectionString,
+      ssl: sslOption(connectionString),
     });
     await client.connect();
     const files = (await readdir(migrationsDir))
@@ -210,6 +227,8 @@ async function openDb() {
     };
   }
 
+  // Local / dev only — dynamic import so production never loads PGlite.
+  const { PGlite } = await import("@electric-sql/pglite");
   await mkdir(localDataDir, { recursive: true });
   const pglite = new PGlite(localDataDir);
   const files = (await readdir(migrationsDir))
