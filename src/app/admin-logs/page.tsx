@@ -27,7 +27,7 @@ export default async function AdminLogsPage({
       q: sp.q,
       action: sp.action,
       subdivision: sp.subdivision,
-      limit: 750,
+      limit: 200,
     }),
     distinctActions(),
   ]);

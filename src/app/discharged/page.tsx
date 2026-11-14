@@ -89,7 +89,8 @@ export default async function DischargedPage({
           ) : null}
         </div>
         <p className="muted" style={{ marginTop: "1rem" }}>
-          {members.length} record{members.length === 1 ? "" : "s"}
+          Showing {members.length} record{members.length === 1 ? "" : "s"}
+          {members.length >= 200 ? " (capped — refine filters to narrow)" : ""}
         </p>
       </section>
     </>

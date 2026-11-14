@@ -13,12 +13,17 @@ services:
     name: SD-SCPF
     runtime: node
     plan: free
+    # Build: schema migrate only + next build (no xlsx import — too heavy for 512MB).
+    # Seed once via Shell after DATABASE_URL is set: npm run import
     buildCommand: npm ci && npm run build
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
+      # Cap V8 heap so Next stays under the 512MB instance limit (leave room for native).
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=384
       - key: DATABASE_URL
         fromDatabase:
           name: sd-scpf-db
