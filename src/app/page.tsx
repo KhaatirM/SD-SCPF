@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { HomeHero } from "@/components/HomeHero";
+import { HomeScrollExperience } from "@/components/sd-figure/HomeScrollExperience";
 import { getStats } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -8,30 +10,11 @@ export default async function HomePage() {
 
   return (
     <>
-      <section className="hero">
-        <div className="hero__atmosphere" aria-hidden />
-        <div className="hero__content">
-          <h1 className="hero__brand">
-            <span>SCP Foundation</span>
-            Security Department
-          </h1>
-          <p className="hero__headline">
-            We die in the dark so they may live in the light.
-          </p>
-          <p className="hero__support">
-            Public personnel directory for SD-SCPF — active roster, discharges,
-            subdivision boards, medals, and administrative history.
-          </p>
-          <div className="hero__cta">
-            <Link className="btn btn--solid" href="/roster">
-              Open Roster
-            </Link>
-            <Link className="btn" href="/awards">
-              Medals & Hall of Fame
-            </Link>
-          </div>
-        </div>
-      </section>
+      <HomeHero />
+
+      <div id="operative-cycle">
+        <HomeScrollExperience />
+      </div>
 
       <section className="section">
         <p className="section__eyebrow">Facility overview</p>

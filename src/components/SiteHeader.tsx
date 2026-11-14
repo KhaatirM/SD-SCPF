@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 const LINKS = [
@@ -15,7 +16,14 @@ export function SiteHeader() {
     <header className="site-header">
       <div className="site-header__inner">
         <Link href="/" className="site-brand">
-          <span className="site-brand__mark" aria-hidden />
+          <Image
+            src="/brand/sd-logo.png"
+            alt=""
+            width={40}
+            height={40}
+            className="site-brand__logo"
+            priority
+          />
           <span className="site-brand__text">
             <span className="site-brand__org">SCPF</span>
             <span className="site-brand__dept">Security Department</span>
