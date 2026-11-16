@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     template: "%s · SD-SCPF",
   },
   description:
-    "Public Security Department records for SCPF — roster, discharges, subdivisions, awards, and administrative logs.",
+    "Public Security Department records for the SCP Foundation — site security personnel roster, discharges, subdivisions, awards, and administrative logs.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
